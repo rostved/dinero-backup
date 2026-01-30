@@ -32,7 +32,7 @@ var (
 func init() {
 	backupCmd.Flags().BoolVar(&dryRun, "dry-run", false, "Run without saving files or updating state")
 	backupCmd.Flags().BoolVar(&debug, "debug", false, "Enable debug logging")
-	backupCmd.Flags().StringVar(&outDir, "out-dir", "backup", "Output directory for backup files")
+	backupCmd.Flags().StringVar(&outDir, "out-dir", "output", "Output directory for backup files")
 
 	backupCmd.Flags().BoolVar(&reports, "reports", false, "Backup reports")
 	backupCmd.Flags().BoolVar(&invoices, "invoices", false, "Backup invoices")
@@ -89,35 +89,46 @@ func runBackup(cmd *cobra.Command, args []string) {
 	runEntries := all || entries
 	runVouchers := all || vouchers
 
+	var hasErrors bool
+
 	if runReports {
 		if err := backup.BackupReports(client, outDir, dryRun); err != nil {
 			log.Printf("Error backing up reports: %v", err)
+			hasErrors = true
 		}
 	}
 
 	if runInvoices {
 		if err := backup.BackupInvoices(client, stateManager, outDir, dryRun); err != nil {
 			log.Printf("Error backing up invoices: %v", err)
+			hasErrors = true
 		}
 	}
 
 	if runCreditNotes {
 		if err := backup.BackupCreditNotes(client, stateManager, outDir, dryRun); err != nil {
 			log.Printf("Error backing up credit notes: %v", err)
+			hasErrors = true
 		}
 	}
 
 	if runEntries {
 		if err := backup.BackupEntries(client, stateManager, outDir, dryRun); err != nil {
 			log.Printf("Error backing up entries: %v", err)
+			hasErrors = true
 		}
 	}
 
 	if runVouchers {
 		if err := backup.BackupVouchers(client, stateManager, outDir, dryRun); err != nil {
 			log.Printf("Error backing up vouchers: %v", err)
+			hasErrors = true
 		}
 	}
 
+	if hasErrors {
+		log.Println("Backup completed with errors.")
+		os.Exit(1)
+	}
 	log.Println("Backup completed successfully.")
 }

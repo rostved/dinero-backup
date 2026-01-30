@@ -37,40 +37,39 @@ func BackupCreditNotes(client *dinero.Client, stateManager *state.Manager, outDi
 		return err
 	}
 
-	var creditNotes []interface{}
-	if err := json.Unmarshal(data, &creditNotes); err != nil {
+	var response PaginatedResponse
+	if err := json.Unmarshal(data, &response); err != nil {
 		return err
 	}
 
-	if len(creditNotes) > 0 {
+	if len(response.Collection) > 0 {
 		filename := filepath.Join(outDir, "creditnotes", fmt.Sprintf("creditnotes_%s.json", time.Now().Format("20060102150405")))
 		if !dryRun {
 			if err := os.WriteFile(filename, data, 0644); err != nil {
 				return err
 			}
-			log.Printf("Fetched %d credit notes.", len(creditNotes))
+			log.Printf("Fetched %d credit notes.", len(response.Collection))
 		} else {
-			log.Printf("[Dry Run] Would save %d credit notes to %s", len(creditNotes), filename)
+			log.Printf("[Dry Run] Would save %d credit notes to %s", len(response.Collection), filename)
 		}
 	}
-    
-    // Fetch Deleted Credit Notes
-    params.Set("deletedOnly", "true")
-    // endpoint might not support deletedOnly, wrapping in try/catch equivalent (ignoring error)
-    if deletedData, err := client.Get("/v1/{organizationId}/sales/creditnotes", params); err == nil {
-         var deletedCreditNotes []interface{}
-         if err := json.Unmarshal(deletedData, &deletedCreditNotes); err == nil && len(deletedCreditNotes) > 0 {
-            filename := filepath.Join(outDir, "deleted/creditnotes", fmt.Sprintf("deleted_creditnotes_%s.json", time.Now().Format("20060102150405")))
-            if !dryRun {
-                if err := os.WriteFile(filename, deletedData, 0644); err != nil {
-                    return err
-                }
-                log.Printf("Fetched %d deleted credit notes.", len(deletedCreditNotes))
-            } else {
-                log.Printf("[Dry Run] Would save %d deleted credit notes to %s", len(deletedCreditNotes), filename)
-            }
-         }
-    }
+
+	// Fetch Deleted Credit Notes
+	params.Set("deletedOnly", "true")
+	if deletedData, err := client.Get("/v1/{organizationId}/sales/creditnotes", params); err == nil {
+		var deletedResponse PaginatedResponse
+		if err := json.Unmarshal(deletedData, &deletedResponse); err == nil && len(deletedResponse.Collection) > 0 {
+			filename := filepath.Join(outDir, "deleted/creditnotes", fmt.Sprintf("deleted_creditnotes_%s.json", time.Now().Format("20060102150405")))
+			if !dryRun {
+				if err := os.WriteFile(filename, deletedData, 0644); err != nil {
+					return err
+				}
+				log.Printf("Fetched %d deleted credit notes.", len(deletedResponse.Collection))
+			} else {
+				log.Printf("[Dry Run] Would save %d deleted credit notes to %s", len(deletedResponse.Collection), filename)
+			}
+		}
+	}
 
 	if !dryRun {
 		stateManager.UpdateCreditNotes(now)

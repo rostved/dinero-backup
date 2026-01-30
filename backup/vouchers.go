@@ -40,10 +40,11 @@ func BackupVouchers(client *dinero.Client, stateManager *state.Manager, outDir s
 		return err
 	}
 
-	var vouchers []Voucher
-	if err := json.Unmarshal(data, &vouchers); err != nil {
+	var response VoucherResponse
+	if err := json.Unmarshal(data, &response); err != nil {
 		return err
 	}
+	vouchers := response.Collection
 
 	if len(vouchers) > 0 {
 		filename := filepath.Join(outDir, "vouchers", fmt.Sprintf("vouchers_meta_%s.json", time.Now().Format("20060102150405")))

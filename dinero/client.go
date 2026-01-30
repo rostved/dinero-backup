@@ -161,3 +161,52 @@ func (c *Client) GetStream(endpoint string) (io.ReadCloser, error) {
 	}
 	return resp.Body, nil
 }
+
+func (c *Client) GetPDF(endpoint string) (io.ReadCloser, error) {
+	if c.Token == "" {
+		if err := c.Authenticate(); err != nil {
+			return nil, err
+		}
+	}
+
+	fullURL := fmt.Sprintf("%s%s", BaseURL, strings.Replace(endpoint, "{organizationId}", c.OrgID, 1))
+
+	if c.Debug {
+		log.Printf("Request PDF: GET %s\n", fullURL)
+	}
+
+	req, err := http.NewRequest("GET", fullURL, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Authorization", "Bearer "+c.Token)
+	req.Header.Add("Accept", "application/octet-stream")
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode == http.StatusUnauthorized {
+		if c.Debug {
+			log.Println("401 Unauthorized, refreshing token...")
+		}
+		if err := c.Authenticate(); err != nil {
+			return nil, err
+		}
+		req.Header.Set("Authorization", "Bearer "+c.Token)
+		resp, err = c.HTTPClient.Do(req)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if resp.StatusCode >= 400 {
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		return nil, fmt.Errorf("request failed with status code %d: %s", resp.StatusCode, string(body))
+	}
+
+	return resp.Body, nil
+}

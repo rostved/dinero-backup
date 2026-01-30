@@ -25,11 +25,11 @@ type Manager struct {
 
 var DefaultState = State{
 	LastSync: LastSync{
-		Reports:     "2000-01-01T00:00:00.000Z",
-		Invoices:    "2000-01-01T00:00:00.000Z",
-		CreditNotes: "2000-01-01T00:00:00.000Z",
-		Entries:     "2000-01-01T00:00:00.000Z",
-		Vouchers:    "2000-01-01T00:00:00.000Z",
+		Reports:     "2000-01-01T00:00:00Z",
+		Invoices:    "2000-01-01T00:00:00Z",
+		CreditNotes: "2000-01-01T00:00:00Z",
+		Entries:     "2000-01-01T00:00:00Z",
+		Vouchers:    "2000-01-01T00:00:00Z",
 	},
 }
 
