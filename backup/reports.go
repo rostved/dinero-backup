@@ -12,12 +12,6 @@ import (
 	"github.com/rostved/dinero-backup/dinero"
 )
 
-type AccountingYear struct {
-	DateEnd string `json:"dateEnd"`
-	ToDate  string `json:"ToDate"` // PascalCase fallback
-    Name string `json:"name"`
-}
-
 func BackupReports(client *dinero.Client, outDir string, dryRun bool) error {
 	log.Println("Backing up Reports...")
 

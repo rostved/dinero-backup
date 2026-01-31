@@ -15,7 +15,8 @@ type LastSync struct {
 }
 
 type State struct {
-	LastSync LastSync `json:"lastSync"`
+	LastSync                 LastSync `json:"lastSync"`
+	EntriesInitializedYears []int    `json:"entriesInitializedYears,omitempty"`
 }
 
 type Manager struct {
@@ -94,5 +95,20 @@ func (m *Manager) GetLastSyncEntries() string {
 }
 
 func (m *Manager) GetLastSyncVouchers() string {
-    return m.State.LastSync.Vouchers
+	return m.State.LastSync.Vouchers
+}
+
+func (m *Manager) IsEntryYearInitialized(year int) bool {
+	for _, y := range m.State.EntriesInitializedYears {
+		if y == year {
+			return true
+		}
+	}
+	return false
+}
+
+func (m *Manager) MarkEntryYearInitialized(year int) {
+	if !m.IsEntryYearInitialized(year) {
+		m.State.EntriesInitializedYears = append(m.State.EntriesInitializedYears, year)
+	}
 }

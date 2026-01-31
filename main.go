@@ -22,6 +22,7 @@ var (
 	dryRun      bool
 	debug       bool
 	outDir      string
+	csvOutput   bool
 	reports     bool
 	invoices    bool
 	creditNotes bool
@@ -33,6 +34,7 @@ func init() {
 	backupCmd.Flags().BoolVar(&dryRun, "dry-run", false, "Run without saving files or updating state")
 	backupCmd.Flags().BoolVar(&debug, "debug", false, "Enable debug logging")
 	backupCmd.Flags().StringVar(&outDir, "out-dir", "output", "Output directory for backup files")
+	backupCmd.Flags().BoolVar(&csvOutput, "csv", false, "Output entries in CSV format instead of JSON")
 
 	backupCmd.Flags().BoolVar(&reports, "reports", false, "Backup reports")
 	backupCmd.Flags().BoolVar(&invoices, "invoices", false, "Backup invoices")
@@ -113,7 +115,7 @@ func runBackup(cmd *cobra.Command, args []string) {
 	}
 
 	if runEntries {
-		if err := backup.BackupEntries(client, stateManager, outDir, dryRun); err != nil {
+		if err := backup.BackupEntries(client, stateManager, outDir, dryRun, csvOutput); err != nil {
 			log.Printf("Error backing up entries: %v", err)
 			hasErrors = true
 		}

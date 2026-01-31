@@ -1,6 +1,6 @@
 # dinero-backup
 
-A CLI tool to backup data from [Dinero](https://dinero.dk) ERP. Downloads and stores invoices, credit notes, vouchers, accounting entries, and reports locally.
+A CLI tool to backup data from [Dinero](https://dinero.dk) ERP. Downloads and stores invoices, credit notes, vouchers (bilag), accounting entries (posteringer), and reports locally.
 
 ## Installation
 
@@ -53,15 +53,32 @@ ORG_ID=your_organization_id
 | Flag | Description |
 |------|-------------|
 | `--reports` | Backup reports |
-| `--invoices` | Backup invoices |
+| `--invoices` | Backup invoices (includes PDFs) |
 | `--creditnotes` | Backup credit notes |
 | `--entries` | Backup accounting entries |
-| `--vouchers` | Backup vouchers |
-| `--out-dir` | Output directory (default: `backup`) |
+| `--vouchers` | Backup voucher files |
+| `--csv` | Export entries in CSV format (in addition to JSON) |
+| `--out-dir` | Output directory (default: `output`) |
 | `--dry-run` | Run without saving files or updating state |
 | `--debug` | Enable debug logging |
 
 If no specific type flags are provided, all data types are backed up.
+
+## How it works
+
+### Entries backup
+
+Entries are exported as full accounting years (January 1 to December 31):
+
+- **First run**: Uses `/entries` endpoint which includes primo (opening balance) values
+- **Subsequent runs**: Uses `/entries/changes` endpoint for efficient incremental updates
+- Changes are merged into existing year files to preserve primo values
+
+Files are saved as `entries_YYYY.json` (and `entries_YYYY.csv` with `--csv` flag).
+
+### Incremental backups
+
+The tool tracks sync state in `state.json` to enable incremental backups. Only new or changed data is fetched on subsequent runs.
 
 ---
 
