@@ -6,6 +6,15 @@ A CLI tool to backup data from [Dinero](https://dinero.dk) ERP. Downloads and st
 
 Download the latest release for your platform from the [GitHub Releases](https://github.com/rostved/dinero-backup/releases) page.
 
+### macOS
+
+macOS may block the binary because it's not signed. Remove the quarantine attribute to run it:
+
+```bash
+xattr -d com.apple.quarantine ./dinero-backup-macos-*
+chmod +x ./dinero-backup-macos-*
+```
+
 ## Configuration
 
 ### 1. Obtain API credentials
