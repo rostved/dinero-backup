@@ -65,6 +65,13 @@ func runBackup(cmd *cobra.Command, args []string) {
 	apiKey := os.Getenv("API_KEY")
 	orgID := os.Getenv("ORG_ID")
 
+	// Use OUT_DIR env var if --out-dir flag wasn't explicitly set
+	if !cmd.Flags().Changed("out-dir") {
+		if envOutDir := os.Getenv("OUT_DIR"); envOutDir != "" {
+			outDir = envOutDir
+		}
+	}
+
 	// Check Env Vars
 	if clientID == "" || clientSecret == "" || apiKey == "" || orgID == "" {
 		log.Fatal("Missing environment variables. Required: CLIENT_ID, CLIENT_SECRET, API_KEY, ORG_ID")

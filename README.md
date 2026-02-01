@@ -36,6 +36,7 @@ CLIENT_ID=your_client_id
 CLIENT_SECRET=your_client_secret
 API_KEY=your_api_key
 ORG_ID=your_organization_id
+OUT_DIR=./my-backup  # Optional, defaults to "output"
 ```
 
 ### 3. Run the backup
@@ -67,7 +68,7 @@ ORG_ID=your_organization_id
 | `--entries` | Backup accounting entries |
 | `--vouchers` | Backup voucher files |
 | `--csv` | Export entries in CSV format (in addition to JSON) |
-| `--out-dir` | Output directory (default: `output`) |
+| `--out-dir` | Output directory (default: `output`, or `OUT_DIR` env var) |
 | `--dry-run` | Run without saving files or updating state |
 | `--debug` | Enable debug logging |
 
