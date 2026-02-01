@@ -1,9 +1,12 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 
 	"github.com/joho/godotenv"
 	"github.com/rostved/dinero-backup/backup"
@@ -13,16 +16,12 @@ import (
 )
 
 var (
-	backupCmd = &cobra.Command{
-		Use:   "dinero-backup",
-		Short: "CLI tool to backup Dinero ERP data",
-		Run:   runBackup,
-	}
+	// Global flags
+	outDir string
+	debug  bool
 
-	// Flags
+	// Run command flags
 	dryRun      bool
-	debug       bool
-	outDir      string
 	csvOutput   bool
 	reports     bool
 	invoices    bool
@@ -31,27 +30,66 @@ var (
 	vouchers    bool
 )
 
-func init() {
-	backupCmd.Flags().BoolVar(&dryRun, "dry-run", false, "Run without saving files or updating state")
-	backupCmd.Flags().BoolVar(&debug, "debug", false, "Enable debug logging")
-	backupCmd.Flags().StringVar(&outDir, "out-dir", "output", "Output directory for backup files")
-	backupCmd.Flags().BoolVar(&csvOutput, "csv", false, "Output entries in CSV format instead of JSON")
+var rootCmd = &cobra.Command{
+	Use:   "dinero-backup",
+	Short: "CLI tool to backup Dinero ERP data",
+}
 
-	backupCmd.Flags().BoolVar(&reports, "reports", false, "Backup reports")
-	backupCmd.Flags().BoolVar(&invoices, "invoices", false, "Backup invoices")
-	backupCmd.Flags().BoolVar(&creditNotes, "creditnotes", false, "Backup credit notes")
-	backupCmd.Flags().BoolVar(&entries, "entries", false, "Backup entries")
-	backupCmd.Flags().BoolVar(&vouchers, "vouchers", false, "Backup vouchers")
+var runCmd = &cobra.Command{
+	Use:   "run",
+	Short: "Run the backup",
+	Run:   runBackup,
+}
+
+var stateCmd = &cobra.Command{
+	Use:   "state",
+	Short: "Display current backup state",
+	Run:   showState,
+}
+
+var testConnectionCmd = &cobra.Command{
+	Use:   "test-connection",
+	Short: "Test API connection and credentials",
+	Run:   testConnection,
+}
+
+func init() {
+	// Global flags
+	rootCmd.PersistentFlags().StringVar(&outDir, "out-dir", "output", "Output directory for backup files")
+	rootCmd.PersistentFlags().BoolVar(&debug, "debug", false, "Enable debug logging")
+
+	// Run command flags
+	runCmd.Flags().BoolVar(&dryRun, "dry-run", false, "Run without saving files or updating state")
+	runCmd.Flags().BoolVar(&csvOutput, "csv", false, "Output entries in CSV format instead of JSON")
+	runCmd.Flags().BoolVar(&reports, "reports", false, "Backup reports")
+	runCmd.Flags().BoolVar(&invoices, "invoices", false, "Backup invoices")
+	runCmd.Flags().BoolVar(&creditNotes, "creditnotes", false, "Backup credit notes")
+	runCmd.Flags().BoolVar(&entries, "entries", false, "Backup entries")
+	runCmd.Flags().BoolVar(&vouchers, "vouchers", false, "Backup vouchers")
+
+	rootCmd.AddCommand(runCmd)
+	rootCmd.AddCommand(stateCmd)
+	rootCmd.AddCommand(testConnectionCmd)
 }
 
 func main() {
-	if err := backupCmd.Execute(); err != nil {
+	if err := rootCmd.Execute(); err != nil {
 		log.Println(err)
 		os.Exit(1)
 	}
 }
 
-func runBackup(cmd *cobra.Command, args []string) {
+func expandTilde(path string) string {
+	if strings.HasPrefix(path, "~/") {
+		home, err := os.UserHomeDir()
+		if err == nil {
+			return filepath.Join(home, path[2:])
+		}
+	}
+	return path
+}
+
+func loadEnvAndOutDir(cmd *cobra.Command) {
 	if debug {
 		log.Println("Debug mode enabled")
 	}
@@ -61,25 +99,92 @@ func runBackup(cmd *cobra.Command, args []string) {
 		log.Println("Error loading .env file (optional)")
 	}
 
-	clientID := os.Getenv("CLIENT_ID")
-	clientSecret := os.Getenv("CLIENT_SECRET")
-	apiKey := os.Getenv("API_KEY")
-	orgID := os.Getenv("ORG_ID")
-
 	// Use OUT_DIR env var if --out-dir flag wasn't explicitly set
-	if !cmd.Flags().Changed("out-dir") {
+	if !cmd.Flags().Changed("out-dir") && !rootCmd.PersistentFlags().Changed("out-dir") {
 		if envOutDir := os.Getenv("OUT_DIR"); envOutDir != "" {
 			outDir = envOutDir
 		}
 	}
 
-	// Check Env Vars
+	// Expand tilde in path
+	outDir = expandTilde(outDir)
+}
+
+func getAPIClient() (*dinero.Client, error) {
+	clientID := os.Getenv("CLIENT_ID")
+	clientSecret := os.Getenv("CLIENT_SECRET")
+	apiKey := os.Getenv("API_KEY")
+	orgID := os.Getenv("ORG_ID")
+
 	if clientID == "" || clientSecret == "" || apiKey == "" || orgID == "" {
-		log.Fatal("Missing environment variables. Required: CLIENT_ID, CLIENT_SECRET, API_KEY, ORG_ID")
+		return nil, fmt.Errorf("missing environment variables. Required: CLIENT_ID, CLIENT_SECRET, API_KEY, ORG_ID")
 	}
 
 	client := dinero.NewClient(clientID, clientSecret, apiKey, orgID)
 	client.SetDebug(debug)
+	return client, nil
+}
+
+func showState(cmd *cobra.Command, args []string) {
+	loadEnvAndOutDir(cmd)
+
+	statePath := filepath.Join(outDir, "state.json")
+	stateManager := state.NewManager(statePath)
+
+	if err := stateManager.Load(); err != nil {
+		if os.IsNotExist(err) {
+			fmt.Printf("No state file found at %s\n", statePath)
+			fmt.Println("Run 'dinero-backup run' to create an initial backup.")
+			return
+		}
+		log.Fatalf("Error loading state: %v", err)
+	}
+
+	fmt.Printf("State file: %s\n\n", statePath)
+	fmt.Println("Last sync times:")
+	fmt.Printf("  Reports:      %s\n", stateManager.State.LastSync.Reports)
+	fmt.Printf("  Invoices:     %s\n", stateManager.State.LastSync.Invoices)
+	fmt.Printf("  Credit Notes: %s\n", stateManager.State.LastSync.CreditNotes)
+	fmt.Printf("  Entries:      %s\n", stateManager.State.LastSync.Entries)
+	fmt.Printf("  Vouchers:     %s\n", stateManager.State.LastSync.Vouchers)
+
+	if len(stateManager.State.EntriesInitializedYears) > 0 {
+		years := make([]int, len(stateManager.State.EntriesInitializedYears))
+		copy(years, stateManager.State.EntriesInitializedYears)
+		sort.Ints(years)
+		fmt.Printf("\nEntries initialized for years: %v\n", years)
+	}
+}
+
+func testConnection(cmd *cobra.Command, args []string) {
+	loadEnvAndOutDir(cmd)
+
+	client, err := getAPIClient()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println("Testing API connection...")
+
+	years, err := backup.GetAccountingYears(client)
+	if err != nil {
+		log.Fatalf("Connection failed: %v", err)
+	}
+
+	fmt.Println("Connection successful!")
+	fmt.Printf("Found %d accounting year(s):\n", len(years))
+	for _, year := range years {
+		fmt.Printf("  - %d\n", year.Year())
+	}
+}
+
+func runBackup(cmd *cobra.Command, args []string) {
+	loadEnvAndOutDir(cmd)
+
+	client, err := getAPIClient()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// Ensure output directory exists before creating state file there
 	if err := os.MkdirAll(outDir, 0755); err != nil {

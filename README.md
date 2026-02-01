@@ -39,26 +39,52 @@ ORG_ID=your_organization_id
 OUT_DIR=./my-backup  # Optional, defaults to "output"
 ```
 
-### 3. Run the backup
+### 3. Test connection
+
+```bash
+./dinero-backup test-connection
+```
+
+### 4. Run the backup
 
 ```bash
 # Backup everything
-./dinero-backup
+./dinero-backup run
 
 # Backup specific data types
-./dinero-backup --invoices --creditnotes
+./dinero-backup run --invoices --creditnotes
 
 # Preview without writing files
-./dinero-backup --dry-run
+./dinero-backup run --dry-run
 
-# Enable debug logging
-./dinero-backup --debug
-
-# Specify output directory
-./dinero-backup --out-dir ./my-backup
+# Export entries as CSV (in addition to JSON)
+./dinero-backup run --entries --csv
 ```
 
-### Available flags
+### 5. Check backup state
+
+```bash
+./dinero-backup state
+```
+
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `run` | Run the backup |
+| `state` | Display current backup state |
+| `test-connection` | Test API connection and credentials |
+
+## Flags
+
+### Global flags
+
+| Flag | Description |
+|------|-------------|
+| `--out-dir` | Output directory (default: `output`, or `OUT_DIR` env var) |
+| `--debug` | Enable debug logging |
+
+### Run command flags
 
 | Flag | Description |
 |------|-------------|
@@ -68,9 +94,7 @@ OUT_DIR=./my-backup  # Optional, defaults to "output"
 | `--entries` | Backup accounting entries |
 | `--vouchers` | Backup voucher files |
 | `--csv` | Export entries in CSV format (in addition to JSON) |
-| `--out-dir` | Output directory (default: `output`, or `OUT_DIR` env var) |
 | `--dry-run` | Run without saving files or updating state |
-| `--debug` | Enable debug logging |
 
 If no specific type flags are provided, all data types are backed up.
 
