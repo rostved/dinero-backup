@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"path/filepath"
 
 	"github.com/joho/godotenv"
 	"github.com/rostved/dinero-backup/backup"
@@ -80,7 +81,12 @@ func runBackup(cmd *cobra.Command, args []string) {
 	client := dinero.NewClient(clientID, clientSecret, apiKey, orgID)
 	client.SetDebug(debug)
 
-	stateManager := state.NewManager("state.json")
+	// Ensure output directory exists before creating state file there
+	if err := os.MkdirAll(outDir, 0755); err != nil {
+		log.Fatalf("Failed to create output directory: %v", err)
+	}
+
+	stateManager := state.NewManager(filepath.Join(outDir, "state.json"))
 	if err := stateManager.Load(); err != nil {
 		log.Printf("Could not load state (starting fresh?): %v", err)
 	}

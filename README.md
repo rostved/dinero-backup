@@ -88,7 +88,7 @@ Files are saved as `entries_YYYY.json` (and `entries_YYYY.csv` with `--csv` flag
 
 ### Incremental backups
 
-The tool tracks sync state in `state.json` to enable incremental backups. Only new or changed data is fetched on subsequent runs.
+The tool tracks sync state in `<out-dir>/state.json` to enable incremental backups. Only new or changed data is fetched on subsequent runs.
 
 ---
 
