@@ -21,13 +21,14 @@ func BackupInvoices(client *dinero.Client, stateManager *state.Manager, outDir s
 		if err := os.MkdirAll(filepath.Join(outDir, "invoices"), 0755); err != nil {
 			return err
 		}
-        if err := os.MkdirAll(filepath.Join(outDir, "deleted/invoices"), 0755); err != nil {
-            return err
-        }
+		if err := os.MkdirAll(filepath.Join(outDir, "deleted/invoices"), 0755); err != nil {
+			return err
+		}
 	}
 
 	lastSync := stateManager.GetLastSyncInvoices()
 	now := time.Now().UTC().Format(time.RFC3339)
+	hasData := false
 
 	fields := "Guid,ContactName,Date,Description,TotalInclVat,Status,CreatedAt,UpdatedAt,DeletedAt,Number,ExternalReference,ContactGuid,PaymentDate,TotalExclVat,Currency"
 	params := url.Values{}
@@ -46,6 +47,7 @@ func BackupInvoices(client *dinero.Client, stateManager *state.Manager, outDir s
 	}
 
 	if len(response.Collection) > 0 {
+		hasData = true
 		filename := filepath.Join(outDir, "invoices", fmt.Sprintf("invoices_%s.json", time.Now().Format("20060102150405")))
 		if !dryRun {
 			if err := os.WriteFile(filename, data, 0644); err != nil {
@@ -98,6 +100,7 @@ func BackupInvoices(client *dinero.Client, stateManager *state.Manager, outDir s
 	if err == nil {
 		var deletedResponse PaginatedResponse
 		if err := json.Unmarshal(deletedData, &deletedResponse); err == nil && len(deletedResponse.Collection) > 0 {
+			hasData = true
 			filename := filepath.Join(outDir, "deleted/invoices", fmt.Sprintf("deleted_invoices_%s.json", time.Now().Format("20060102150405")))
 			if !dryRun {
 				if err := os.WriteFile(filename, deletedData, 0644); err != nil {
@@ -110,12 +113,13 @@ func BackupInvoices(client *dinero.Client, stateManager *state.Manager, outDir s
 		}
 	}
 
-	if !dryRun {
+	// Only update lastSync if we got data back (endpoint might be unstable)
+	if hasData && !dryRun {
 		stateManager.UpdateInvoices(now)
 		if err := stateManager.Save(); err != nil {
 			return err
 		}
-	} else {
+	} else if dryRun && hasData {
 		log.Printf("[Dry Run] Would update state.invoices to %s", now)
 	}
 

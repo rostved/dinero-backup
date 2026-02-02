@@ -52,13 +52,7 @@ func BackupVouchers(client *dinero.Client, stateManager *state.Manager, outDir s
 	}
 
 	if len(files) == 0 {
-		log.Println("No files found.")
-		if !dryRun {
-			stateManager.UpdateVouchers(now.Format(time.RFC3339))
-			if err := stateManager.Save(); err != nil {
-				return err
-			}
-		}
+		log.Println("No files found (not updating lastSync).")
 		return nil
 	}
 

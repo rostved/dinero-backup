@@ -27,6 +27,7 @@ func BackupCreditNotes(client *dinero.Client, stateManager *state.Manager, outDi
 
 	lastSync := stateManager.GetLastSyncCreditNotes()
 	now := time.Now().UTC().Format(time.RFC3339)
+	hasData := false
 
 	params := url.Values{}
 	params.Set("changesSince", lastSync)
@@ -43,6 +44,7 @@ func BackupCreditNotes(client *dinero.Client, stateManager *state.Manager, outDi
 	}
 
 	if len(response.Collection) > 0 {
+		hasData = true
 		filename := filepath.Join(outDir, "creditnotes", fmt.Sprintf("creditnotes_%s.json", time.Now().Format("20060102150405")))
 		if !dryRun {
 			if err := os.WriteFile(filename, data, 0644); err != nil {
@@ -59,6 +61,7 @@ func BackupCreditNotes(client *dinero.Client, stateManager *state.Manager, outDi
 	if deletedData, err := client.Get("/v1/{organizationId}/sales/creditnotes", params); err == nil {
 		var deletedResponse PaginatedResponse
 		if err := json.Unmarshal(deletedData, &deletedResponse); err == nil && len(deletedResponse.Collection) > 0 {
+			hasData = true
 			filename := filepath.Join(outDir, "deleted/creditnotes", fmt.Sprintf("deleted_creditnotes_%s.json", time.Now().Format("20060102150405")))
 			if !dryRun {
 				if err := os.WriteFile(filename, deletedData, 0644); err != nil {
@@ -71,12 +74,13 @@ func BackupCreditNotes(client *dinero.Client, stateManager *state.Manager, outDi
 		}
 	}
 
-	if !dryRun {
+	// Only update lastSync if we got data back (endpoint might be unstable)
+	if hasData && !dryRun {
 		stateManager.UpdateCreditNotes(now)
 		if err := stateManager.Save(); err != nil {
 			return err
 		}
-	} else {
+	} else if dryRun && hasData {
 		log.Printf("[Dry Run] Would update state.creditNotes to %s", now)
 	}
 

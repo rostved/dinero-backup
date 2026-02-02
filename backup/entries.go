@@ -135,13 +135,7 @@ func fetchAndMergeAllChanges(client *dinero.Client, stateManager *state.Manager,
 	}
 
 	if len(allChanges) == 0 {
-		log.Println("No entry changes found.")
-		if !dryRun {
-			stateManager.UpdateEntries(time.Now().UTC().Format(time.RFC3339))
-			if err := stateManager.Save(); err != nil {
-				return err
-			}
-		}
+		log.Println("No entry changes found (not updating lastSync).")
 		return nil
 	}
 
