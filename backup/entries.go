@@ -55,7 +55,7 @@ func BackupEntries(client *dinero.Client, stateManager *state.Manager, outDir st
 	// Process initialized years - fetch changes once and merge into each year
 	if len(initializedYears) > 0 {
 		if err := fetchAndMergeAllChanges(client, stateManager, outDir, initializedYears, dryRun, csvOutput); err != nil {
-			log.Printf("Error fetching entry changes: %v", err)
+			return fmt.Errorf("error fetching entry changes: %w", err)
 		}
 	}
 
@@ -117,21 +117,45 @@ func fetchFullYear(client *dinero.Client, stateManager *state.Manager, outDir st
 
 // fetchAndMergeAllChanges fetches all changes once and merges them into the appropriate year files
 func fetchAndMergeAllChanges(client *dinero.Client, stateManager *state.Manager, outDir string, years []time.Time, dryRun bool, csvOutput bool) error {
-	lastSync := stateManager.GetLastSyncEntries()
+	lastSyncStr := stateManager.GetLastSyncEntries()
 
-	log.Printf("Fetching entry changes since %s", lastSync)
-
-	params := url.Values{}
-	params.Set("changesSince", lastSync)
-
-	data, err := client.Get("/v1/{organizationId}/entries/changes", params)
+	lastSync, err := time.Parse(time.RFC3339, lastSyncStr)
 	if err != nil {
-		return fmt.Errorf("failed to fetch entry changes: %w", err)
+		return fmt.Errorf("failed to parse lastSync time: %w", err)
 	}
 
+	now := time.Now().UTC()
+
+	log.Printf("Fetching entry changes from %s to %s", lastSync.Format(time.RFC3339), now.Format(time.RFC3339))
+
+	// API only allows 31 days at a time, so we need to chunk
 	var allChanges []Entry
-	if err := json.Unmarshal(data, &allChanges); err != nil {
-		return fmt.Errorf("failed to parse entry changes: %w", err)
+	chunkStart := lastSync
+
+	for chunkStart.Before(now) {
+		chunkEnd := chunkStart.AddDate(0, 0, 31)
+		if chunkEnd.After(now) {
+			chunkEnd = now
+		}
+
+		params := url.Values{}
+		params.Set("changesFrom", chunkStart.Format(time.RFC3339))
+		params.Set("changesTo", chunkEnd.Format(time.RFC3339))
+
+		log.Printf("Fetching changes from %s to %s", chunkStart.Format("2006-01-02"), chunkEnd.Format("2006-01-02"))
+
+		data, err := client.Get("/v1/{organizationId}/entries/changes", params)
+		if err != nil {
+			return fmt.Errorf("failed to fetch entry changes: %w", err)
+		}
+
+		var chunkChanges []Entry
+		if err := json.Unmarshal(data, &chunkChanges); err != nil {
+			return fmt.Errorf("failed to parse entry changes: %w", err)
+		}
+
+		allChanges = append(allChanges, chunkChanges...)
+		chunkStart = chunkEnd
 	}
 
 	if len(allChanges) == 0 {
@@ -188,7 +212,7 @@ func fetchAndMergeAllChanges(client *dinero.Client, stateManager *state.Manager,
 	}
 
 	if !dryRun {
-		stateManager.UpdateEntries(time.Now().UTC().Format(time.RFC3339))
+		stateManager.UpdateEntries(now.Format(time.RFC3339))
 		if err := stateManager.Save(); err != nil {
 			return err
 		}
