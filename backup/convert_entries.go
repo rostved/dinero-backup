@@ -45,7 +45,7 @@ func EntriesToCSV(jsonData []byte) ([]byte, error) {
 		}
 
 		// Map voucher type to Danish label
-		bilagstype := mapVoucherType(entry.VoucherType, entry.Description, entry.Type)
+		bilagstype := mapVoucherType(entry.VoucherType, entry.Type)
 
 		// Format amount in Danish format (comma as decimal separator)
 		beloeb := formatDanishNumber(entry.Amount)
@@ -72,7 +72,7 @@ func EntriesToCSV(jsonData []byte) ([]byte, error) {
 }
 
 // mapVoucherType converts the API VoucherType to Danish label matching Dinero's export
-func mapVoucherType(voucherType *string, description string, entryType string) string {
+func mapVoucherType(voucherType *string, entryType string) string {
 	// Primo entries
 	if entryType == "Primo" {
 		return "---"
@@ -88,35 +88,10 @@ func mapVoucherType(voucherType *string, description string, entryType string) s
 	case "Purchases":
 		return "Køb"
 	case "manuel":
-		return mapManuelVoucherType(description)
+		return "Finansbilag"
 	default:
 		return *voucherType
 	}
-}
-
-// mapManuelVoucherType determines the Danish label for "manuel" voucher types based on description
-func mapManuelVoucherType(description string) string {
-	descLower := strings.ToLower(description)
-
-	if strings.Contains(descLower, "betaling af faktura") ||
-		strings.Contains(descLower, "betaling af køb") ||
-		strings.Contains(descLower, "kursdifference") {
-		return "Registrering af betaling"
-	}
-
-	if strings.Contains(descLower, "overførsel") {
-		return "Flytning af penge mellem beholdninger"
-	}
-
-	if strings.Contains(descLower, "betaling af a-skat") {
-		return "Betaling af A-skat og AM-bidrag"
-	}
-
-	if strings.Contains(descLower, "samlet betaling") {
-		return "Samlet betaling (inklusiv ATP)"
-	}
-
-	return "Finansbilag"
 }
 
 // formatDanishNumber formats a number in Danish format (comma as decimal, dot as thousands)
