@@ -239,22 +239,33 @@ func loadExistingEntries(outDir string, year int) ([]Entry, error) {
 }
 
 // mergeEntries merges changed entries into existing entries by EntryGuid
+// Preserves existing order and appends new entries at the end
 func mergeEntries(existing, changes []Entry) []Entry {
-	// Create map of existing entries by GUID
-	entryMap := make(map[string]Entry)
-	for _, e := range existing {
-		entryMap[e.EntryGuid] = e
-	}
-
-	// Update/add changed entries
+	// Create map of changes by GUID for quick lookup
+	changeMap := make(map[string]Entry)
 	for _, e := range changes {
-		entryMap[e.EntryGuid] = e
+		changeMap[e.EntryGuid] = e
 	}
 
-	// Convert back to slice
-	result := make([]Entry, 0, len(entryMap))
-	for _, e := range entryMap {
-		result = append(result, e)
+	// Track which changes have been applied
+	applied := make(map[string]bool)
+
+	// Update existing entries in place, preserving order
+	result := make([]Entry, 0, len(existing)+len(changes))
+	for _, e := range existing {
+		if changed, ok := changeMap[e.EntryGuid]; ok {
+			result = append(result, changed)
+			applied[e.EntryGuid] = true
+		} else {
+			result = append(result, e)
+		}
+	}
+
+	// Append new entries that weren't updates to existing ones
+	for _, e := range changes {
+		if !applied[e.EntryGuid] {
+			result = append(result, e)
+		}
 	}
 
 	return result

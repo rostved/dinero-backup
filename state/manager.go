@@ -12,6 +12,7 @@ type LastSync struct {
 	CreditNotes string `json:"creditNotes"`
 	Entries     string `json:"entries"`
 	Vouchers    string `json:"vouchers"`
+	Contacts    string `json:"contacts"`
 }
 
 type State struct {
@@ -31,6 +32,7 @@ var DefaultState = State{
 		CreditNotes: "2000-01-01T00:00:00Z",
 		Entries:     "2000-01-01T00:00:00Z",
 		Vouchers:    "2000-01-01T00:00:00Z",
+		Contacts:    "2000-01-01T00:00:00Z",
 	},
 }
 
@@ -96,6 +98,14 @@ func (m *Manager) GetLastSyncEntries() string {
 
 func (m *Manager) GetLastSyncVouchers() string {
 	return m.State.LastSync.Vouchers
+}
+
+func (m *Manager) UpdateContacts(timestamp string) {
+	m.State.LastSync.Contacts = timestamp
+}
+
+func (m *Manager) GetLastSyncContacts() string {
+	return m.State.LastSync.Contacts
 }
 
 func (m *Manager) IsEntryYearInitialized(year int) bool {

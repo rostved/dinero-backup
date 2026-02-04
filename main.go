@@ -28,6 +28,7 @@ var (
 	creditNotes bool
 	entries     bool
 	vouchers    bool
+	contacts    bool
 )
 
 var rootCmd = &cobra.Command{
@@ -66,6 +67,7 @@ func init() {
 	runCmd.Flags().BoolVar(&creditNotes, "creditnotes", false, "Backup credit notes")
 	runCmd.Flags().BoolVar(&entries, "entries", false, "Backup entries")
 	runCmd.Flags().BoolVar(&vouchers, "vouchers", false, "Backup vouchers")
+	runCmd.Flags().BoolVar(&contacts, "contacts", false, "Backup contacts")
 
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(stateCmd)
@@ -147,6 +149,7 @@ func showState(cmd *cobra.Command, args []string) {
 	fmt.Printf("  Credit Notes: %s\n", stateManager.State.LastSync.CreditNotes)
 	fmt.Printf("  Entries:      %s\n", stateManager.State.LastSync.Entries)
 	fmt.Printf("  Vouchers:     %s\n", stateManager.State.LastSync.Vouchers)
+	fmt.Printf("  Contacts:     %s\n", stateManager.State.LastSync.Contacts)
 
 	if len(stateManager.State.EntriesInitializedYears) > 0 {
 		years := make([]int, len(stateManager.State.EntriesInitializedYears))
@@ -202,12 +205,13 @@ func runBackup(cmd *cobra.Command, args []string) {
 	}
 
 	// Determine what to backup
-	all := !reports && !invoices && !creditNotes && !entries && !vouchers
+	all := !reports && !invoices && !creditNotes && !entries && !vouchers && !contacts
 	runReports := all || reports
 	runInvoices := all || invoices
 	runCreditNotes := all || creditNotes
 	runEntries := all || entries
 	runVouchers := all || vouchers
+	runContacts := all || contacts
 
 	var hasErrors bool
 
@@ -242,6 +246,13 @@ func runBackup(cmd *cobra.Command, args []string) {
 	if runVouchers {
 		if err := backup.BackupVouchers(client, stateManager, outDir, dryRun); err != nil {
 			log.Printf("Error backing up vouchers: %v", err)
+			hasErrors = true
+		}
+	}
+
+	if runContacts {
+		if err := backup.BackupContacts(client, stateManager, outDir, dryRun); err != nil {
+			log.Printf("Error backing up contacts: %v", err)
 			hasErrors = true
 		}
 	}
