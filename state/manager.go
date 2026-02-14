@@ -3,7 +3,6 @@ package state
 import (
 	"encoding/json"
 	"os"
-
 )
 
 type LastSync struct {
@@ -16,7 +15,7 @@ type LastSync struct {
 }
 
 type State struct {
-	LastSync                 LastSync `json:"lastSync"`
+	LastSync                LastSync `json:"lastSync"`
 	EntriesInitializedYears []int    `json:"entriesInitializedYears,omitempty"`
 }
 
@@ -85,15 +84,15 @@ func (m *Manager) UpdateVouchers(timestamp string) {
 }
 
 func (m *Manager) GetLastSyncInvoices() string {
-    return m.State.LastSync.Invoices
+	return m.State.LastSync.Invoices
 }
 
 func (m *Manager) GetLastSyncCreditNotes() string {
-    return m.State.LastSync.CreditNotes
+	return m.State.LastSync.CreditNotes
 }
 
 func (m *Manager) GetLastSyncEntries() string {
-    return m.State.LastSync.Entries
+	return m.State.LastSync.Entries
 }
 
 func (m *Manager) GetLastSyncVouchers() string {

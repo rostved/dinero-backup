@@ -20,9 +20,9 @@ func BackupCreditNotes(client *dinero.Client, stateManager *state.Manager, outDi
 		if err := os.MkdirAll(filepath.Join(outDir, "creditnotes"), 0755); err != nil {
 			return err
 		}
-        if err := os.MkdirAll(filepath.Join(outDir, "deleted/creditnotes"), 0755); err != nil {
-            return err
-        }
+		if err := os.MkdirAll(filepath.Join(outDir, "deleted/creditnotes"), 0755); err != nil {
+			return err
+		}
 	}
 
 	lastSync := stateManager.GetLastSyncCreditNotes()

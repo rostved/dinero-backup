@@ -24,7 +24,7 @@ type Client struct {
 	OrgID        string
 	HTTPClient   *http.Client
 	Token        string
-    Debug        bool
+	Debug        bool
 }
 
 type TokenResponse struct {
@@ -44,13 +44,13 @@ func NewClient(clientID, clientSecret, apiKey, orgID string) *Client {
 }
 
 func (c *Client) SetDebug(debug bool) {
-    c.Debug = debug
+	c.Debug = debug
 }
 
 func (c *Client) Authenticate() error {
-    if c.Debug {
-        log.Println("Authenticating...")
-    }
+	if c.Debug {
+		log.Println("Authenticating...")
+	}
 	data := url.Values{}
 	data.Set("grant_type", "password")
 	data.Set("scope", "read")
@@ -83,9 +83,9 @@ func (c *Client) Authenticate() error {
 	}
 
 	c.Token = tokenResp.AccessToken
-    if c.Debug {
-        log.Println("Authenticated successfully.")
-    }
+	if c.Debug {
+		log.Println("Authenticated successfully.")
+	}
 	return nil
 }
 
@@ -97,13 +97,13 @@ func (c *Client) doRequest(method, endpoint string, params url.Values, stream bo
 	}
 
 	fullURL := fmt.Sprintf("%s%s", BaseURL, strings.Replace(endpoint, "{organizationId}", c.OrgID, 1))
-    
-    if c.Debug {
-        log.Printf("Request: %s %s\n", method, fullURL)
-        if params != nil {
-             log.Printf("Params: %v\n", params)
-        }
-    }
+
+	if c.Debug {
+		log.Printf("Request: %s %s\n", method, fullURL)
+		if params != nil {
+			log.Printf("Params: %v\n", params)
+		}
+	}
 
 	req, err := http.NewRequest(method, fullURL, nil)
 	if err != nil {
@@ -123,9 +123,9 @@ func (c *Client) doRequest(method, endpoint string, params url.Values, stream bo
 
 	// Retry on 401
 	if resp.StatusCode == http.StatusUnauthorized {
-        if c.Debug {
-            log.Println("401 Unauthorized, refreshing token...")
-        }
+		if c.Debug {
+			log.Println("401 Unauthorized, refreshing token...")
+		}
 		if err := c.Authenticate(); err != nil {
 			return nil, err
 		}
@@ -136,11 +136,11 @@ func (c *Client) doRequest(method, endpoint string, params url.Values, stream bo
 		}
 	}
 
-    if resp.StatusCode >= 400 {
-        body, _ := io.ReadAll(resp.Body)
-        resp.Body.Close()
-        return nil, fmt.Errorf("request failed with status code %d: %s", resp.StatusCode, string(body))
-    }
+	if resp.StatusCode >= 400 {
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		return nil, fmt.Errorf("request failed with status code %d: %s", resp.StatusCode, string(body))
+	}
 
 	return resp, nil
 }
