@@ -2,6 +2,16 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Before Committing
+
+After making code changes, run these checks before committing:
+
+```bash
+gofmt -w .         # Format code
+go vet ./...       # Check for issues
+go build .         # Verify it compiles
+```
+
 ## Build & Run Commands
 
 ```bash

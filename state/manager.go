@@ -16,7 +16,7 @@ type LastSync struct {
 }
 
 type State struct {
-	LastSync                 LastSync `json:"lastSync"`
+	LastSync                LastSync `json:"lastSync"`
 	EntriesInitializedYears []string `json:"entriesInitializedYears,omitempty"`
 }
 
@@ -58,7 +58,7 @@ func (m *Manager) Load() error {
 	if err := json.Unmarshal(data, &m.State); err != nil {
 		// Try to migrate from old format ([]int to []string)
 		var oldState struct {
-			LastSync                 LastSync `json:"lastSync"`
+			LastSync                LastSync `json:"lastSync"`
 			EntriesInitializedYears []int    `json:"entriesInitializedYears,omitempty"`
 		}
 		if migrateErr := json.Unmarshal(data, &oldState); migrateErr == nil {
@@ -99,15 +99,15 @@ func (m *Manager) UpdateVouchers(timestamp string) {
 }
 
 func (m *Manager) GetLastSyncInvoices() string {
-    return m.State.LastSync.Invoices
+	return m.State.LastSync.Invoices
 }
 
 func (m *Manager) GetLastSyncCreditNotes() string {
-    return m.State.LastSync.CreditNotes
+	return m.State.LastSync.CreditNotes
 }
 
 func (m *Manager) GetLastSyncEntries() string {
-    return m.State.LastSync.Entries
+	return m.State.LastSync.Entries
 }
 
 func (m *Manager) GetLastSyncVouchers() string {
