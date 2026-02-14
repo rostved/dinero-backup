@@ -50,3 +50,35 @@ type AccountingYear struct {
 	DateEnd   string `json:"dateEnd"`
 	Name      string `json:"name"`
 }
+
+// GetFromDate returns the start date, checking both field variants
+func (a AccountingYear) GetFromDate() string {
+	if a.FromDate != "" {
+		return a.FromDate
+	}
+	return a.DateStart
+}
+
+// GetToDate returns the end date, checking both field variants
+func (a AccountingYear) GetToDate() string {
+	if a.ToDate != "" {
+		return a.ToDate
+	}
+	return a.DateEnd
+}
+
+// GetName returns the fiscal year name, deriving from end date if not set
+func (a AccountingYear) GetName() string {
+	if a.Name != "" {
+		return a.Name
+	}
+	// Derive from end date year
+	if endDate := a.GetToDate(); endDate != "" && len(endDate) >= 4 {
+		return endDate[:4]
+	}
+	// Fall back to start date year
+	if fromDate := a.GetFromDate(); fromDate != "" && len(fromDate) >= 4 {
+		return fromDate[:4]
+	}
+	return ""
+}
