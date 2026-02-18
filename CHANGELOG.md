@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.4.0] - 2026-02-18
+
+### Fixed
+- Entries backup for staggered fiscal years. Now uses actual fiscal year dates from the API instead of hardcoding Jan 1 - Dec 31. This fixes the "Dates not in single accounting year" error for users with non-calendar fiscal years (e.g., April-March).
+
+### Changed
+- State file format for tracking initialized entry years changed from year numbers to date strings to support non-calendar fiscal years. Existing state files are migrated automatically.
+
 ## [0.3.0] - 2026-02-04
 
 ### Added
