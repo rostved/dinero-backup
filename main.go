@@ -152,9 +152,9 @@ func showState(cmd *cobra.Command, args []string) {
 	fmt.Printf("  Contacts:     %s\n", stateManager.State.LastSync.Contacts)
 
 	if len(stateManager.State.EntriesInitializedYears) > 0 {
-		years := make([]int, len(stateManager.State.EntriesInitializedYears))
+		years := make([]string, len(stateManager.State.EntriesInitializedYears))
 		copy(years, stateManager.State.EntriesInitializedYears)
-		sort.Ints(years)
+		sort.Strings(years)
 		fmt.Printf("\nEntries initialized for years: %v\n", years)
 	}
 }
@@ -177,7 +177,7 @@ func testConnection(cmd *cobra.Command, args []string) {
 	fmt.Println("Connection successful!")
 	fmt.Printf("Found %d accounting year(s):\n", len(years))
 	for _, year := range years {
-		fmt.Printf("  - %d\n", year.Year())
+		fmt.Printf("  - %s (%s to %s)\n", year.GetName(), year.GetFromDate(), year.GetToDate())
 	}
 }
 

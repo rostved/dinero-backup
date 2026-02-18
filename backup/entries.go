@@ -34,10 +34,11 @@ func BackupEntries(client *dinero.Client, stateManager *state.Manager, outDir st
 	}
 
 	// Separate years into initialized and uninitialized
-	var uninitializedYears []time.Time
-	var initializedYears []time.Time
+	var uninitializedYears []AccountingYear
+	var initializedYears []AccountingYear
 	for _, year := range years {
-		if stateManager.IsEntryYearInitialized(year.Year()) {
+		yearName := year.GetName()
+		if stateManager.IsEntryYearInitialized(yearName) {
 			initializedYears = append(initializedYears, year)
 		} else {
 			uninitializedYears = append(uninitializedYears, year)
@@ -47,7 +48,7 @@ func BackupEntries(client *dinero.Client, stateManager *state.Manager, outDir st
 	// Process uninitialized years - fetch full entries including primo
 	for _, year := range uninitializedYears {
 		if err := fetchFullYear(client, stateManager, outDir, year, dryRun, csvOutput); err != nil {
-			log.Printf("Error fetching entries for year %d: %v", year.Year(), err)
+			log.Printf("Error fetching entries for year %s: %v", year.GetName(), err)
 			continue
 		}
 	}
@@ -62,17 +63,17 @@ func BackupEntries(client *dinero.Client, stateManager *state.Manager, outDir st
 	return nil
 }
 
-// fetchFullYear fetches all entries for a year using /entries endpoint (includes primo)
-func fetchFullYear(client *dinero.Client, stateManager *state.Manager, outDir string, year time.Time, dryRun bool, csvOutput bool) error {
-	yearNum := year.Year()
-	fromDate := time.Date(yearNum, 1, 1, 0, 0, 0, 0, time.UTC)
-	toDate := time.Date(yearNum, 12, 31, 0, 0, 0, 0, time.UTC)
+// fetchFullYear fetches all entries for a fiscal year using /entries endpoint (includes primo)
+func fetchFullYear(client *dinero.Client, stateManager *state.Manager, outDir string, accYear AccountingYear, dryRun bool, csvOutput bool) error {
+	yearName := accYear.GetName()
+	fromDate := accYear.GetFromDate()
+	toDate := accYear.GetToDate()
 
-	log.Printf("Fetching full entries for year %d (first run, includes primo)", yearNum)
+	log.Printf("Fetching full entries for fiscal year %s (%s to %s, first run, includes primo)", yearName, fromDate, toDate)
 
 	params := url.Values{}
-	params.Set("fromDate", fromDate.Format("2006-01-02"))
-	params.Set("toDate", toDate.Format("2006-01-02"))
+	params.Set("fromDate", fromDate)
+	params.Set("toDate", toDate)
 
 	data, err := client.Get("/v1/{organizationId}/entries", params)
 	if err != nil {
@@ -85,10 +86,10 @@ func fetchFullYear(client *dinero.Client, stateManager *state.Manager, outDir st
 	}
 
 	if len(entries) == 0 {
-		log.Printf("No entries found for year %d.", yearNum)
+		log.Printf("No entries found for fiscal year %s.", yearName)
 		// Still mark as initialized even if empty
 		if !dryRun {
-			stateManager.MarkEntryYearInitialized(yearNum)
+			stateManager.MarkEntryYearInitialized(yearName)
 			stateManager.UpdateEntries(time.Now().UTC().Format(time.RFC3339))
 			if err := stateManager.Save(); err != nil {
 				return err
@@ -98,14 +99,14 @@ func fetchFullYear(client *dinero.Client, stateManager *state.Manager, outDir st
 	}
 
 	// Save to file
-	if err := saveEntriesFile(outDir, yearNum, entries, csvOutput, dryRun); err != nil {
+	if err := saveEntriesFile(outDir, yearName, entries, csvOutput, dryRun); err != nil {
 		return err
 	}
 
-	log.Printf("Saved %d entries for year %d.", len(entries), yearNum)
+	log.Printf("Saved %d entries for fiscal year %s.", len(entries), yearName)
 
 	if !dryRun {
-		stateManager.MarkEntryYearInitialized(yearNum)
+		stateManager.MarkEntryYearInitialized(yearName)
 		stateManager.UpdateEntries(time.Now().UTC().Format(time.RFC3339))
 		if err := stateManager.Save(); err != nil {
 			return err
@@ -115,8 +116,8 @@ func fetchFullYear(client *dinero.Client, stateManager *state.Manager, outDir st
 	return nil
 }
 
-// fetchAndMergeAllChanges fetches all changes once and merges them into the appropriate year files
-func fetchAndMergeAllChanges(client *dinero.Client, stateManager *state.Manager, outDir string, years []time.Time, dryRun bool, csvOutput bool) error {
+// fetchAndMergeAllChanges fetches all changes once and merges them into the appropriate fiscal year files
+func fetchAndMergeAllChanges(client *dinero.Client, stateManager *state.Manager, outDir string, years []AccountingYear, dryRun bool, csvOutput bool) error {
 	lastSyncStr := stateManager.GetLastSyncEntries()
 
 	lastSync, err := time.Parse(time.RFC3339, lastSyncStr)
@@ -165,36 +166,44 @@ func fetchAndMergeAllChanges(client *dinero.Client, stateManager *state.Manager,
 
 	log.Printf("Found %d total entry changes.", len(allChanges))
 
-	// Group changes by year
-	changesByYear := make(map[int][]Entry)
+	// Group changes by fiscal year (match entry date to fiscal year range)
+	changesByYear := make(map[string][]Entry)
 	for _, entry := range allChanges {
 		entryDate, err := time.Parse("2006-01-02", entry.Date)
 		if err != nil {
 			continue
 		}
-		yearNum := entryDate.Year()
-		changesByYear[yearNum] = append(changesByYear[yearNum], entry)
+		// Find which fiscal year this entry belongs to
+		for _, accYear := range years {
+			fromDate, _ := time.Parse("2006-01-02", accYear.GetFromDate())
+			toDate, _ := time.Parse("2006-01-02", accYear.GetToDate())
+			if !entryDate.Before(fromDate) && !entryDate.After(toDate) {
+				yearName := accYear.GetName()
+				changesByYear[yearName] = append(changesByYear[yearName], entry)
+				break
+			}
+		}
 	}
 
-	// Process each year that has changes
-	for _, year := range years {
-		yearNum := year.Year()
-		yearChanges := changesByYear[yearNum]
+	// Process each fiscal year that has changes
+	for _, accYear := range years {
+		yearName := accYear.GetName()
+		yearChanges := changesByYear[yearName]
 
 		if len(yearChanges) == 0 {
-			log.Printf("No changes for year %d.", yearNum)
+			log.Printf("No changes for fiscal year %s.", yearName)
 			continue
 		}
 
-		log.Printf("Found %d changes for year %d, merging...", len(yearChanges), yearNum)
+		log.Printf("Found %d changes for fiscal year %s, merging...", len(yearChanges), yearName)
 
 		// Load existing entries
-		existingEntries, err := loadExistingEntries(outDir, yearNum)
+		existingEntries, err := loadExistingEntries(outDir, yearName)
 		if err != nil {
 			// If file doesn't exist, fetch full year
-			log.Printf("Could not load existing entries for year %d, fetching full year: %v", yearNum, err)
-			if err := fetchFullYear(client, stateManager, outDir, year, dryRun, csvOutput); err != nil {
-				log.Printf("Error fetching full year %d: %v", yearNum, err)
+			log.Printf("Could not load existing entries for fiscal year %s, fetching full year: %v", yearName, err)
+			if err := fetchFullYear(client, stateManager, outDir, accYear, dryRun, csvOutput); err != nil {
+				log.Printf("Error fetching full fiscal year %s: %v", yearName, err)
 			}
 			continue
 		}
@@ -203,12 +212,12 @@ func fetchAndMergeAllChanges(client *dinero.Client, stateManager *state.Manager,
 		mergedEntries := mergeEntries(existingEntries, yearChanges)
 
 		// Save merged entries
-		if err := saveEntriesFile(outDir, yearNum, mergedEntries, csvOutput, dryRun); err != nil {
-			log.Printf("Error saving year %d: %v", yearNum, err)
+		if err := saveEntriesFile(outDir, yearName, mergedEntries, csvOutput, dryRun); err != nil {
+			log.Printf("Error saving fiscal year %s: %v", yearName, err)
 			continue
 		}
 
-		log.Printf("Merged %d changes into year %d (total: %d entries).", len(yearChanges), yearNum, len(mergedEntries))
+		log.Printf("Merged %d changes into fiscal year %s (total: %d entries).", len(yearChanges), yearName, len(mergedEntries))
 	}
 
 	if !dryRun {
@@ -222,9 +231,9 @@ func fetchAndMergeAllChanges(client *dinero.Client, stateManager *state.Manager,
 }
 
 // loadExistingEntries loads entries from an existing JSON file
-func loadExistingEntries(outDir string, year int) ([]Entry, error) {
+func loadExistingEntries(outDir string, yearName string) ([]Entry, error) {
 	// Always read from JSON file (source of truth)
-	filename := filepath.Join(outDir, "entries", fmt.Sprintf("entries_%d.json", year))
+	filename := filepath.Join(outDir, "entries", fmt.Sprintf("entries_%s.json", yearName))
 	data, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
@@ -272,14 +281,14 @@ func mergeEntries(existing, changes []Entry) []Entry {
 }
 
 // saveEntriesFile saves entries to a file in JSON and optionally CSV format
-func saveEntriesFile(outDir string, year int, entries []Entry, csvOutput bool, dryRun bool) error {
+func saveEntriesFile(outDir string, yearName string, entries []Entry, csvOutput bool, dryRun bool) error {
 	// Always save JSON as source of truth
 	jsonData, err := json.MarshalIndent(entries, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal entries: %w", err)
 	}
 
-	jsonFilename := filepath.Join(outDir, "entries", fmt.Sprintf("entries_%d.json", year))
+	jsonFilename := filepath.Join(outDir, "entries", fmt.Sprintf("entries_%s.json", yearName))
 
 	if !dryRun {
 		if err := os.WriteFile(jsonFilename, jsonData, 0644); err != nil {
@@ -296,7 +305,7 @@ func saveEntriesFile(outDir string, year int, entries []Entry, csvOutput bool, d
 			return fmt.Errorf("failed to convert to CSV: %w", err)
 		}
 
-		csvFilename := filepath.Join(outDir, "entries", fmt.Sprintf("entries_%d.csv", year))
+		csvFilename := filepath.Join(outDir, "entries", fmt.Sprintf("entries_%s.csv", yearName))
 		if !dryRun {
 			if err := os.WriteFile(csvFilename, csvData, 0644); err != nil {
 				return err
@@ -309,8 +318,8 @@ func saveEntriesFile(outDir string, year int, entries []Entry, csvOutput bool, d
 	return nil
 }
 
-// GetAccountingYears fetches all accounting years and returns their start dates
-func GetAccountingYears(client *dinero.Client) ([]time.Time, error) {
+// GetAccountingYears fetches all accounting years from the API
+func GetAccountingYears(client *dinero.Client) ([]AccountingYear, error) {
 	data, err := client.Get("/v1/{organizationId}/accountingyears", nil)
 	if err != nil {
 		return nil, err
@@ -321,22 +330,12 @@ func GetAccountingYears(client *dinero.Client) ([]time.Time, error) {
 		return nil, err
 	}
 
-	var result []time.Time
+	// Filter out years without valid dates
+	var result []AccountingYear
 	for _, year := range years {
-		dateStr := year.FromDate
-		if dateStr == "" {
-			dateStr = year.DateStart
+		if year.GetFromDate() != "" && year.GetToDate() != "" {
+			result = append(result, year)
 		}
-		if dateStr == "" {
-			continue
-		}
-
-		t, err := time.ParseInLocation("2006-01-02", dateStr, time.UTC)
-		if err != nil {
-			continue
-		}
-
-		result = append(result, t)
 	}
 
 	return result, nil

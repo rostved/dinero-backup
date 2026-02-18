@@ -2,6 +2,7 @@ package state
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 )
 
@@ -16,7 +17,7 @@ type LastSync struct {
 
 type State struct {
 	LastSync                LastSync `json:"lastSync"`
-	EntriesInitializedYears []int    `json:"entriesInitializedYears,omitempty"`
+	EntriesInitializedYears []string `json:"entriesInitializedYears,omitempty"`
 }
 
 type Manager struct {
@@ -53,7 +54,21 @@ func (m *Manager) Load() error {
 		return err
 	}
 
+	// Try to unmarshal with new format first
 	if err := json.Unmarshal(data, &m.State); err != nil {
+		// Try to migrate from old format ([]int to []string)
+		var oldState struct {
+			LastSync                LastSync `json:"lastSync"`
+			EntriesInitializedYears []int    `json:"entriesInitializedYears,omitempty"`
+		}
+		if migrateErr := json.Unmarshal(data, &oldState); migrateErr == nil {
+			m.State.LastSync = oldState.LastSync
+			m.State.EntriesInitializedYears = make([]string, len(oldState.EntriesInitializedYears))
+			for i, year := range oldState.EntriesInitializedYears {
+				m.State.EntriesInitializedYears[i] = fmt.Sprintf("%d", year)
+			}
+			return nil
+		}
 		return err
 	}
 	return nil
@@ -107,7 +122,7 @@ func (m *Manager) GetLastSyncContacts() string {
 	return m.State.LastSync.Contacts
 }
 
-func (m *Manager) IsEntryYearInitialized(year int) bool {
+func (m *Manager) IsEntryYearInitialized(year string) bool {
 	for _, y := range m.State.EntriesInitializedYears {
 		if y == year {
 			return true
@@ -116,7 +131,7 @@ func (m *Manager) IsEntryYearInitialized(year int) bool {
 	return false
 }
 
-func (m *Manager) MarkEntryYearInitialized(year int) {
+func (m *Manager) MarkEntryYearInitialized(year string) {
 	if !m.IsEntryYearInitialized(year) {
 		m.State.EntriesInitializedYears = append(m.State.EntriesInitializedYears, year)
 	}
